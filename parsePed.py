@@ -55,10 +55,11 @@ def getLastCross(ped):
 
 def writePed(lineped, na = ""):
 	parinfo = re.findall('\(.*?\)',lineped[1])
-	if parinfo and args.parseNested:
+	if parinfo and args.nested:
 		for j in parinfo:	
 			# need to figure out which parent each nested pedigree comes from
 			writePed(["parentX", j[1:(len(j)-1)]]) 
+	pedNoPar = re.sub("[\[].*?[\]]", "", lineped[1])
 	pedNoPar = re.sub("[\(\[].*?[\)\]]", "", lineped[1])
 	lc = getLastCross(pedNoPar)
 	if len(lc):
