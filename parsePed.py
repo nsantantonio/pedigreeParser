@@ -40,11 +40,7 @@ skip = args.skip
 def formatPed(ped):
 	return re.sub("\s*/\s*", "/", ped)
 # should we try to have exactly one space before and after each cross indicator?
-	# ped = "A   / B//  C /3/D"
-	# ped = re.sub("\s*/", " /", ped)
-	# ped = re.sub("/\s*", "/ ", ped)
-	# ped = re.sub("/ /", "//", ped) # this is pretty hacky
-	# ped = re.sub("/ [0-9] /", "/[0-9]/", ped) 
+
 		
 # function to get the last cross made indicator
 def getLastCross(ped):
@@ -158,17 +154,22 @@ def writePed(lineped, na = ""):
 			for j in [ mf[i+1] for i in parisped ]:	
 				print(j)
 				psplit = j.split("/")
-				p1 = psplit[0]
-				pl = psplit[len(psplit)-1]
+				# p1 = psplit[0]
+				# pl = psplit[len(psplit)-1]
+
+				p1 = re.sub(r'\*', '\*', psplit[0])
+				pl = re.sub(r'\*', '\*', psplit[len(psplit)-1])
+				
 				print("first: " + p1)
 				print("last: " + pl)
 				print("Gonna look for this now")
 				print(p1 + '.*' + pl + '\s*\(.*?\)|' + p1 + '.*' + pl + '\s*\[.*?\]')
 				# print(p1 + '.*' + pl + '\s*\(.*?\)')
-				parPed = re.findall(p1 + '.*' + pl + '\s*\(.*?\)|' + p1 + '.*' + pl + '\s*\[.*?\]', lineped[1])
+				parPed = re.findall(p1 + '.*?' + pl + '\s*\(.*?\)|' + p1 + '.*' + pl + '\s*\[.*?\]', lineped[1])
 				# cant find becuase nested sep by /
 				if not len(parPed):
-					parPed = re.findall(p1 + '.*' + pl, lineped[1])
+					# if the same parent is used twice, then this breaks cause it grabs 
+					parPed = re.findall(p1 + '.*?' + pl, lineped[1])
 				if len(parPed) > 1:
 					print("more than 1 match in parent")
 					parPed = list(set(parPed))
@@ -218,6 +219,16 @@ def writePed(lineped, na = ""):
 # "VA11MAS-7520-2-3-255, Oglethorpe (GA951231-4E25) / SS8404//Shirley(VA03W-409)"
 # l="Hilliard (VA12345)"
 # l="VA11MAS-7520-2-3-255,Oglethorpe (GA951231-4E25) / SS8404//Shirley(VA03W-409)"
+
+# l = "VA20FHB-25,M10-1615 (IL99-15867/M03-3002) / VA12W-26 [MPV57 (VA97W-24)/M99*3098 (TX85-264/VA88-52-69) // '3434' (VA03W-434)]"
+# l = "VA20FHB-25,M10-1615 (IL99-15867/M03-3002) / VA12W-26 [MPV57 (VA97W-24)/M99*3098 (TX85-264/VA88-52-69) // '3434' (VA03W-434)]"
+# lineped = ['VA12W-26', "MPV57 (VA97W-24)/M99*3098 (TX85-264/VA88-52-69) // '3434' (VA03W-434)"]
+# l = "VA20FHB-29,P05222A1-7 [99840/INW0304//INW0304/ INW0316] / Branson // VA12W-102 [VA03W-436 (ROANE/ CK9835// VA96-54-270) / IL99-15867 (IL93-2879/ P881705A-1-X-60)], F6"
+
+lineped=['P05222A1-7/Branson', 'P05222A1-7 [99840/INW0304//INW0304/ INW0316] / Branson']
+lineped=['P05222A1-7', '99840/INW0304//INW0304/ INW0316']
+
+
 
 outfile = open(out + ".ped", "w")
 
