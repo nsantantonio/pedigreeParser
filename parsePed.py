@@ -37,9 +37,110 @@ skip = args.skip
 
 # function to clean up white space surrounding cross slashes
 # "  / " -> "/"
+
+# checkParen is from https://www.geeksforgeeks.org/check-for-balanced-parentheses-in-python/
+# balanced parentheses in an expression 
+  
+# Function to check parentheses: This doesnt work unless its all parentheses.
+def checkParen(myStr):
+	open_list = ["[","{","("]
+	close_list = ["]","}",")"]
+	stack = []
+	for i in myStr:
+	    if i in open_list:
+	        stack.append(i)
+	    elif i in close_list:
+	        pos = close_list.index(i)
+	        if ((len(stack) > 0) and (open_list[pos] == stack[len(stack)-1])):
+	            stack.pop()
+	    else:
+	        return "Unbalanced"
+	if len(stack) == 0:
+	    return "Balanced"
+	else:
+	    return "Unbalanced"
+
+# checkParen("(A)[B((D))]")
+# checkParen("()[(())]")
+
 def formatPed(ped):
 	return re.sub("\s*/\s*", "/", ped)
 # should we try to have exactly one space before and after each cross indicator?
+
+# remove_text_inside_brackets from https://stackoverflow.com/questions/14596884/remove-text-between-and-in-python
+def remove_text_inside_brackets(text, brackets="()[]"):
+    count = [0] * (len(brackets) // 2) # count open/close brackets
+    saved_chars = []
+    for character in text:
+        for i, b in enumerate(brackets):
+            if character == b: # found bracket
+                kind, is_close = divmod(i, 2)
+                count[kind] += (-1)**is_close # `+1`: open, `-1`: close
+                if count[kind] < 0: # unbalanced bracket
+                    count[kind] = 0  # keep it
+                else:  # found bracket to remove
+                    break
+        else: # character is not a [balanced] bracket
+            if not any(count): # outside brackets
+                saved_chars.append(character)
+    return ''.join(saved_chars)
+
+
+
+def formatBC(ped):
+	crossOrder = ["/", "//", ] + ["/" + str(i) + "/" for i in range(3, 10)]
+	lc = getLastCross(ped)
+	nBCleft = [int(x) for x in re.findall(r'\*([0-9])/', ped) ]
+	nBCright = [int(x) for x in re.findall(r'/([0-9])\*', ped) ]
+	if len(nBCleft):
+		lped = [ped]
+	# for i in nBCleft[::-1]: # does this really need to be reversed?
+		for i in nBCleft: # does this really need to be reversed?
+			if len(lped) == 1:
+				lped = lped[0].split(r"*" + str(i))
+			else:
+				lped = [ lped.split(i) for x in lped ]
+			repPar = [ bc for bc in [lped[0]] for j in range(i) ]
+			nextCross = [j+1 for j, x in enumerate(crossOrder) if lc == x][0] # NOte: [0] doesnt allow more than 1 backcross!
+			cross = crossOrder[nextCross:nextCross+nBCleft[0]-1]
+			cross.append("")
+		lped[0] = ''.join([j + k for j , k in zip(repPar, cross)])
+		ped = ''.join(lped)
+	if len(nBCright):
+		rped = [ped]
+	# for i in nBCleft[::-1]: # does this really need to be reversed?
+		for i in nBCright: # does this really need to be reversed?
+			if len(rped) == 1:
+				rped = rped[0].split(str(i) + "*")
+			else:
+				rped = [ rped.split(i) for x in rped ]
+			rpedi = len(rped) -1
+			repPar = [ bc for bc in [rped[rpedi]] for j in range(i) ]
+			nextCross = [j+1 for j, x in enumerate(crossOrder) if lc == x][0] # NOte: [0] doesnt allow more than 1 backcross!
+			cross = crossOrder[nextCross:nextCross+nBCright[0]-1]
+			cross.append("")
+		rped[rpedi] = ''.join([j + k for j , k in zip(repPar, cross)])
+		ped = ''.join(rped)
+	return(ped)
+
+
+# formatBC("AAA/3*BB")
+# formatBC("AAA*3/BB")
+# formatBC("D/A*3/3/B//C")
+# formatBC("AAA/3*BB")
+# 
+# ped = "AAA/3*BB"
+# ped = "AAA*3/BB"
+
+# ped = "A*2//B/C"
+# "A/3/A//B/C"
+# ped = "A/*2B/C"
+# "A/3/A//B/C"
+# ped = "D/A*3/3/B//C"
+# "D/A*3/3/B//C"
+
+
+# "D/A*3/3/B//C"
 
 		
 # function to get the last cross made indicator
@@ -64,10 +165,14 @@ def getLastCross(ped):
 			lastCross = ""
 	return lastCross
 
+# def stripNested(x):
+# 	noNest = re.sub("[\[].*?[\]]", "", x)
+# 	noNest = re.sub("[\(\[].*?[\)\]]", "", noNest)
+# 	return noNest
+
 def stripNested(x):
-	noNest = re.sub("[\[].*?[\]]", "", x)
-	noNest = re.sub("[\(\[].*?[\)\]]", "", noNest)
-	return noNest
+	return(remove_text_inside_brackets(x))
+	# 	return noNest
 
 def getShortMatch(p1, p2, ped):
 	p1pos = []
@@ -98,6 +203,8 @@ def writePed(lineped, na = ""):
 	# remove nested pedigrees
 	# pedNoPar = re.sub("[\[].*?[\]]", "", lineped[1])
 	# pedNoPar = re.sub("[\(\[].*?[\)\]]", "", pedNoPar)
+	pednoast = re.sub(r'\*', '\*', lineped[1])
+	stripNested(pednoast)
 	pedNoPar = stripNested(lineped[1])
 	# print("pedigrees without parents:")
 	# print(pedNoPar)
@@ -266,7 +373,9 @@ def writePed(lineped, na = ""):
 # l="VA20W-49","UX1334-4 [Shirley/3/Shirley(VA03W-409)/ Sr26recA//Shirley] / VA12FHB-34 [GA991109-4-1-3 (Ernie/Pion2684// GA901146)/PIONEER26R15], F6"
 
 # lineped=["UX1334-4", "Shirley/3/Shirley(VA03W-409)/ Sr26recA//Shirley"] 
-# lineped=["UX1347-1", "McCormick*2//(IL00-8061// TA5605 (Lr58)/ McCormick)/(SS8641*2// McCormick/KS92WGRC15(Lr21)"]
+# lineped=["UX1347-1", "McCormick*2//(IL00-8061// TA5605 (Lr58)/ McCormick)/(SS8641*2// McCormick/KS92WGRC15(Lr21))"]
+
+
 
 outfile = open(out + ".ped", "w")
 
