@@ -1,9 +1,22 @@
+
+# import standard libraries
 import sys
 import re
 import argparse
 import time
 
 startTime = time.time()
+
+# Import custom libraries, we can collapse these into one library once weve finished. 
+import getShortMatch
+import stripNested
+import getLastCross
+import formatBC
+import formatPed
+import checkParen
+
+
+
 
 # argument to pass to script
 parser = argparse.ArgumentParser(description='Recursively parse pedigrees and produce a three column pedigree [individual, mother, father]')
@@ -35,168 +48,7 @@ skip = args.skip
 # rmChar = ["\"", ',\s*F[0-9]']
 # miss = ""
 
-# function to clean up white space surrounding cross slashes
-# "  / " -> "/"
-
-# checkParen is from https://www.geeksforgeeks.org/check-for-balanced-parentheses-in-python/
-# balanced parentheses in an expression 
-  
-# Function to check parentheses: This doesnt work unless its all parentheses.
-def checkParen(myStr):
-	open_list = ["[","{","("]
-	close_list = ["]","}",")"]
-	stack = []
-	for i in myStr:
-	    if i in open_list:
-	        stack.append(i)
-	    elif i in close_list:
-	        pos = close_list.index(i)
-	        if ((len(stack) > 0) and (open_list[pos] == stack[len(stack)-1])):
-	            stack.pop()
-	    else:
-	        return "Unbalanced"
-	if len(stack) == 0:
-	    return "Balanced"
-	else:
-	    return "Unbalanced"
-
-# checkParen("(A)[B((D))]")
-# checkParen("()[(())]")
-
-def formatPed(ped):
-	return re.sub("\s*/\s*", "/", ped)
 # should we try to have exactly one space before and after each cross indicator?
-
-# remove_text_inside_brackets from https://stackoverflow.com/questions/14596884/remove-text-between-and-in-python
-def remove_text_inside_brackets(text, brackets="()[]"):
-    count = [0] * (len(brackets) // 2) # count open/close brackets
-    saved_chars = []
-    for character in text:
-        for i, b in enumerate(brackets):
-            if character == b: # found bracket
-                kind, is_close = divmod(i, 2)
-                count[kind] += (-1)**is_close # `+1`: open, `-1`: close
-                if count[kind] < 0: # unbalanced bracket
-                    count[kind] = 0  # keep it
-                else:  # found bracket to remove
-                    break
-        else: # character is not a [balanced] bracket
-            if not any(count): # outside brackets
-                saved_chars.append(character)
-    return ''.join(saved_chars)
-
-
-
-def formatBC(ped):
-	crossOrder = ["/", "//", ] + ["/" + str(i) + "/" for i in range(3, 10)]
-	lc = getLastCross(ped)
-	nBCleft = [int(x) for x in re.findall(r'\*([0-9])/', ped) ]
-	nBCright = [int(x) for x in re.findall(r'/([0-9])\*', ped) ]
-	if len(nBCleft):
-		lped = [ped]
-	# for i in nBCleft[::-1]: # does this really need to be reversed?
-		for i in nBCleft: # does this really need to be reversed?
-			if len(lped) == 1:
-				lped = lped[0].split(r"*" + str(i))
-			else:
-				lped = [ lped.split(i) for x in lped ]
-			repPar = [ bc for bc in [lped[0]] for j in range(i) ]
-			nextCross = [j+1 for j, x in enumerate(crossOrder) if lc == x][0] # NOte: [0] doesnt allow more than 1 backcross!
-			cross = crossOrder[nextCross:nextCross+nBCleft[0]-1]
-			cross.append("")
-		lped[0] = ''.join([j + k for j , k in zip(repPar, cross)])
-		ped = ''.join(lped)
-	if len(nBCright):
-		rped = [ped]
-	# for i in nBCleft[::-1]: # does this really need to be reversed?
-		for i in nBCright: # does this really need to be reversed?
-			if len(rped) == 1:
-				rped = rped[0].split(str(i) + "*")
-			else:
-				rped = [ rped.split(i) for x in rped ]
-			rpedi = len(rped) -1
-			repPar = [ bc for bc in [rped[rpedi]] for j in range(i) ]
-			nextCross = [j+1 for j, x in enumerate(crossOrder) if lc == x][0] # NOte: [0] doesnt allow more than 1 backcross!
-			cross = crossOrder[nextCross:nextCross+nBCright[0]-1]
-			cross.append("")
-		rped[rpedi] = ''.join([j + k for j , k in zip(repPar, cross)])
-		ped = ''.join(rped)
-	return(ped)
-
-
-# formatBC("AAA/3*BB")
-# formatBC("AAA*3/BB")
-# formatBC("D/A*3/3/B//C")
-# formatBC("AAA/3*BB")
-# 
-# ped = "AAA/3*BB"
-# ped = "AAA*3/BB"
-
-# ped = "A*2//B/C"
-# "A/3/A//B/C"
-# ped = "A/*2B/C"
-# "A/3/A//B/C"
-# ped = "D/A*3/3/B//C"
-# "D/A*3/3/B//C"
-
-
-# "D/A*3/3/B//C"
-
-		
-# function to get the last cross made indicator
-def getLastCross(ped):
-	# find all crosses with integers (e.g.  '/3/' but not '/' or '//')
-	crosses = re.findall(r'/([0-9])/', ped)
-	# get cross number as integers
-	crossNo = [ int(x) for x in crosses ]
-	# if integers exist, get max integer
-	if len(crossNo):
-		lastCross = "/" + str(max(crossNo)) + "/"	
-	else:
-	# else, find last cross character/pattern 
-		# look for '//''
-		if(re.search(r'//', ped)):
-			lastCross = "//"
-		# if no '//', look for '/'
-		elif(re.search(r'/', ped)):
-			lastCross = "/"
-		# if no '/', return empty
-		else:
-			lastCross = ""
-	return lastCross
-
-# def stripNested(x):
-# 	noNest = re.sub("[\[].*?[\]]", "", x)
-# 	noNest = re.sub("[\(\[].*?[\)\]]", "", noNest)
-# 	return noNest
-
-def stripNested(x):
-	return(remove_text_inside_brackets(x))
-	# 	return noNest
-
-def getShortMatch(p1, p2, ped):
-	p1pos = []
-	p2pos = []
-	for match in re.finditer(p1, ped):
-		p1pos.append(match.span())
-	p1start = [x[0] for x in p1pos]
-	p1end = [x[1] for x in p1pos]
-	for match in re.finditer(p2, ped):
-		p2pos.append(match.span())
-	p2start = [x[0] for x in p2pos]
-	p2end = [x[1] for x in p2pos]
-	i1 = p1start[0]
-	i2 = p2end[0]
-	diff = abs(p1start[0] - p2end[0])
-	for i in p1start:
-		for j in p2end:
-			diffi = abs(i - j)
-			if diff > diffi:
-				i1 = i
-				i2 = j
-				diff = diffi
-	return [i1,i2]
-
 
 
 def writePed(lineped, na = ""):
@@ -204,12 +56,12 @@ def writePed(lineped, na = ""):
 	# pedNoPar = re.sub("[\[].*?[\]]", "", lineped[1])
 	# pedNoPar = re.sub("[\(\[].*?[\)\]]", "", pedNoPar)
 	pednoast = re.sub(r'\*', '\*', lineped[1])
-	stripNested(pednoast)
-	pedNoPar = stripNested(lineped[1])
+	# stripNested.rmInParen(pednoast)
+	pedNoPar = stripNested.rmInParen(lineped[1])
 	# print("pedigrees without parents:")
 	# print(pedNoPar)
 	# find last cross character/pattern
-	lc = getLastCross(pedNoPar)
+	lc = getLastCross.getLastCross(pedNoPar)
 	# print("last cross char:")
 	# print(lc)
 	if len(lc):
@@ -217,7 +69,7 @@ def writePed(lineped, na = ""):
 		mf = pedNoPar.split(lc)
 		# clean up strings
 		mf = [ x.strip() for x in mf ]
-		mf = [ formatPed(i) for i in mf ]
+		mf = [ formatPed.formatPed(i) for i in mf ]
 		
 		# add line name back in as first element
 		mf.insert(0, lineped[0])
@@ -241,8 +93,8 @@ def writePed(lineped, na = ""):
 			# print(parPed)
 
 			if len(parPed):
-				# parent = stripNested(parPed[0])
-				parents = [ stripNested(i) for i in parPed ]
+				# parent = stripNested.rmInParen(parPed[0])
+				parents = [ stripNested.rmInParen(i) for i in parPed ]
 				parents = [ i.strip() for i in parents ]
 				# print("these are the parents after:")
 				# print(parents)
@@ -300,7 +152,7 @@ def writePed(lineped, na = ""):
 						# this is kinda hacky. Matches first match, or truncated begining to grab the second match, by selecting the shortest of 2 matches
 						# pindex = getShortMatch(p1, pl, lineped[1])
 					
-					pindex = getShortMatch(p1, pl, lineped[1])
+					pindex = getShortMatch.getShortMatch(p1, pl, lineped[1])
 					parPed = re.findall(p1 + '.*?' + pl + '\s*\(.*?\)|' + p1 + '.*' + pl + '\s*\[.*?\]', lineped[1][pindex[0]:])
 					# cant find because nested sep by /
 					if not len(parPed):
@@ -318,7 +170,7 @@ def writePed(lineped, na = ""):
 					# print(parPed)
 					# print("parent " + j + " is pedigree:")
 				else:
-					parPed = p.split(getLastCross(p))
+					parPed = p.split(getLastCross.getLastCross(p))
 				# print(mf)
 				writePed([p, parPed[0]])
 		# if -p option, then write each (simple) parent as its own line
