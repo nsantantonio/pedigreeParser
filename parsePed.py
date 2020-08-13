@@ -53,17 +53,15 @@ skip = args.skip
 
 def writePed(lineped, na = ""):
 	# remove nested pedigrees
-	# pedNoPar = re.sub("[\[].*?[\]]", "", lineped[1])
-	# pedNoPar = re.sub("[\(\[].*?[\)\]]", "", pedNoPar)
-	pednoast = re.sub(r'\*', '\*', lineped[1])
-	# stripNested.rmInParen(pednoast)
 	pedNoPar = stripNested.rmInParen(lineped[1])
-	# print("pedigrees without parents:")
-	# print(pedNoPar)
+	# if backcross characters in pedigree, process them
+	if re.search(r'\*',lineped[1]):
+		pedNoPar = formatBC.formatBC(pedNoPar)
+	# may need to find a way to edit the orginial pedigree as well, to replace AAA*2/ with e.g. AAA//AAA/ 
+
 	# find last cross character/pattern
 	lc = getLastCross.getLastCross(pedNoPar)
-	# print("last cross char:")
-	# print(lc)
+	# if there was a last cross then process as pedigree, else just write name to file.
 	if len(lc):
 		# split on last cross character/pattern
 		mf = pedNoPar.split(lc)
@@ -73,8 +71,6 @@ def writePed(lineped, na = ""):
 		
 		# add line name back in as first element
 		mf.insert(0, lineped[0])
-		# print("pedigree line:")
-		# print(mf)
 		# then write line, mother, father
 		outfile.write(outsep.join(mf) + "\n")
 
@@ -83,21 +79,17 @@ def writePed(lineped, na = ""):
 		# get which parent names are NOT pedigrees
 		parisnotped = [ x for x in [0,1] if x not in parisped ]
 		
-		# print(parisnotped)
 		for p in parisnotped:
-			# need nested list of all parents, then flatten and assign index to nested peds
-			# print("This is what IM going to search for")
-			# print(mf[p+1] + '\s*\(.*?\)|' + mf[p+1] + '\s*\[.*?\]')
+			# get parental string, with info in parentheses/brackets if exists
 			parPed = re.findall(mf[p+1] + '\s*\(.*?\)|' + mf[p+1] + '\s*\[.*?\]', lineped[1])
-			# print("This is where the parent pedigree is:")
-			# print(parPed)
 
+			# If there is a nested pedigree in parentheses/brackets, process it
 			if len(parPed):
-				# parent = stripNested.rmInParen(parPed[0])
+				# get parent information in nested pedigree
 				parents = [ stripNested.rmInParen(i) for i in parPed ]
 				parents = [ i.strip() for i in parents ]
-				# print("these are the parents after:")
-				# print(parents)
+				# This is still an unknown potential source or problems, matching strings multiple times. 
+				# Unsure what degree this will happen. Perhaps write to error file if occurs?
 				if len(parents) > 1:	
 					print("WARNING! More than 1 match in parents!")
 				if len(parPed) > 1:	
@@ -105,74 +97,60 @@ def writePed(lineped, na = ""):
 					parPed = list(set(parPed))
 					if len(parPed) > 1:	
 						print("WARNING! More than 1 match in pedigree!")
-
-				# print("here is the nested pedigree that needs to be parsed")
-				# print(parPed)
+				# if the nested flag is used and there is nested information in parentheses
 				if args.nested and re.search(r'\(|\)|\[|\]', parPed[0]):
 					parinfo = re.findall('\(.*?\)|\[.*?\]', parPed[0])[0]
-					# print("this nested pedigree will be parsed:")
-					# print(parinfo)
 					parlineped = [parents[0], parinfo[1:len(parinfo)-1]]
-					# print("this is input to recursive call:")
-					# print(parlineped)
 					if re.search(r'/', parlineped[1]):
 						writePed(parlineped)
 					else:
 						if args.parents:
-							# print("nested is not a pedigree")
 							alias = [parlineped[0], na, na, parlineped[1]]
-							# print("here is the alias:")
-							# print(alias)
 							outfile.write(outsep.join(alias) + "\n")
-				# else:
+			# For each non-pedigree parent without extra info in paren/bracket, write parent name as own line, with empty mother father
+			else:
+				if args.parents:
+					npp = [mf[p+1], na, na]
+					outfile.write(outsep.join(npp) + "\n")
 
-		# for each non pedigree parent, write parent name as own line, with empty mother father
-		for j in [ mf[j+1] for j in parisnotped ]:
-			# print("parent " + str(j) + " is NOT a pedigree!")
-			npp = [j, na, na]
-			# print(outsep.join(par) + "\n")
-			if args.parents:
-				outfile.write(outsep.join(npp) + "\n")
 		# if parent names are pedigrees themselves, parse them
 		if parisped:
 			# for j in [ mf[i+1] for i in parisped ]:	
-			for j in parisped:	
+			for j in parisped:
 				p = mf[j+1]
-				if re.search(r'\(|\)|\[|\]', p):
-					psplit = p.split("/")
-					p1 = re.sub(r'\*', '\*', psplit[0])
-					pl = re.sub(r'\*', '\*', psplit[len(psplit)-1])
+				# If nested information/pedigrees, find the right string to use as nested pedigrees, this is tricky
+				# if re.search(r'\(|\)|\[|\]', parPed): 
+					# if no further nested info/ped for lat parent, retry find string without paren/bracket at end
+				# if re.search(r'\(|\)|\[|\]', p): # this doesnt make sense here, I already removed the nested peds!
+				# split by all cross symbols
+				psplit = p.split("/")
+				# get first parent in string
+				p1 = re.sub(r'\*', '\*', psplit[0])
+				# get last parent in string
+				pl = re.sub(r'\*', '\*', psplit[len(psplit)-1])
 
-					# print("first: " + p1)
-					# print("last: " + pl)
-					# print("Gonna look for this now")
-					# print(p1 + '.*' + pl + '\s*\(.*?\)|' + p1 + '.*' + pl + '\s*\[.*?\]')
-					# print(p1 + '.*' + pl + '\s*\(.*?\)')
-
-						# this is kinda hacky. Matches first match, or truncated begining to grab the second match, by selecting the shortest of 2 matches
-						# pindex = getShortMatch(p1, pl, lineped[1])
-					
-					pindex = getShortMatch.getShortMatch(p1, pl, lineped[1])
-					parPed = re.findall(p1 + '.*?' + pl + '\s*\(.*?\)|' + p1 + '.*' + pl + '\s*\[.*?\]', lineped[1][pindex[0]:])
-					# cant find because nested sep by /
-					if not len(parPed):
-						# if the same parent is used twice, then this breaks cause it grabs 
-						# good for first match (lazy) , problem for second. I.e. 'abc / xyz // xyz / def' returns 'abc / xyz' for first, but 'xyz // xyz / def' for second... FML					
-						parPed = re.findall(p1 + '.*?' + pl, lineped[1][pindex[0]:])
-
-					if len(parPed) > 1:
-						print("2: more than 1 match in parent")
-						parPed = list(set(parPed))
-						if len(parPed) > 1:	
-							# print("WARNING! More than 1 match in pedigree!")
-							print("2: WARNING! multiple matches found! errors may occur!")
-					# print("parent " + mf[j+1] + " has nested pedigree:")
-					# print(parPed)
-					# print("parent " + j + " is pedigree:")
-				else:
-					parPed = p.split(getLastCross.getLastCross(p))
-				# print(mf)
-				writePed([p, parPed[0]])
+				# Find string starting with first parent, ending with last parent, plus any nested info/ped it may have
+				# this is kinda hacky. Matches first match, or truncate string begining to grab the second match, by selecting the shortest of 2 matches
+				pindex = getShortMatch.getShortMatch(p1, pl, lineped[1]) # This needs fixd, does not work for some circumstances (McCormick example)
+				parPed = re.findall(p1 + '.*?' + pl + '\s*\(.*?\)|' + p1 + '.*' + pl + '\s*\[.*?\]', lineped[1][pindex[0]:])
+								
+				if not len(parPed):
+					# if the same parent is used twice, then this breaks cause it grabs 
+					# good for first match (lazy) , problem for second. I.e. 'abc / xyz // xyz / def' returns 'abc / xyz' for first, but 'xyz // xyz / def' for second... FML					
+					parPed = re.findall(p1 + '.*?' + pl, lineped[1][pindex[0]:])
+					# This is still an unknown potential source or problems, matching strings multiple times. 
+					# Unsure what degree this will happen. Perhaps write to error file if occurs?
+				if len(parPed) > 1:
+					print("2: more than 1 match in parent")
+					parPed = list(set(parPed))
+					if len(parPed) > 1:	
+						print("2: WARNING! multiple matches found! errors may occur!")
+				# else:
+					# split based on last cross
+					# parPed = p.split(getLastCross.getLastCross(p))
+				
+				# send back to writePed as line mother father
+				writePed([p] + parPed)
 		# if -p option, then write each (simple) parent as its own line
 	else:
 		# print("there is no cross here, printing parent:")
@@ -181,20 +159,10 @@ def writePed(lineped, na = ""):
 			mf = [lineped[0], na, na]
 			# print(mf)
 			outfile.write(outsep.join(mf) + "\n")
-	##########################################################################################
-	# parse nested pedigrees in this section
-	# move this to the end?
-	# get nested pedigrees (i.e. parent pedigree / information)
-	# parinfo = re.findall('\(.*?\)|\[.*?\]', lineped[1])
-	# print(parinfo)
-	# # process parent pedigrees, using recursion
-	# if parinfo and args.nested:
-	# 	for j in parinfo:	
-	# 		# need to figure out which parent each nested pedigree comes from
-	# 		writePed(["parentX", j[1:(len(j)-1)]]) 
-	# how do we make sure that nested pedigrees are paired with the proper individual?
-	##########################################################################################
-	# return [pcnt, ]
+
+
+
+
 # examples:
 # l = "P992231A1-2-1 / LA01*425" + sep + "P992231A1-2-1 / LA01*425"
 # l = "line,Patton // Patterson / Bizel /3/ 9346"
@@ -226,8 +194,10 @@ def writePed(lineped, na = ""):
 
 # lineped=["UX1334-4", "Shirley/3/Shirley(VA03W-409)/ Sr26recA//Shirley"] 
 # lineped=["UX1347-1", "McCormick*2//(IL00-8061// TA5605 (Lr58)/ McCormick)/(SS8641*2// McCormick/KS92WGRC15(Lr21))"]
+# lineped=["UX1347-1", "McCormick*2//UNKNOWN(IL00-8061// TA5605 (Lr58)/ McCormick)/ UNKNOWN(SS8641*2// McCormick/KS92WGRC15(Lr21))"]
 
 
+# Need to create raw and processed pedigree stack that can be checked ot determine if needs parsed again
 
 outfile = open(out + ".ped", "w")
 
