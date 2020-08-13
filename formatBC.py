@@ -22,10 +22,11 @@
 # probably need to split left side by cross symbol (need independent function to do this?)
 # see ** for location
 import re
+import getLastCross
 
 def formatBC(ped):
 	crossOrder = ["/", "//", ] + ["/" + str(i) + "/" for i in range(3, 10)]
-	lc = getLastCross(ped)
+	lc = getLastCross.getLastCross(ped)
 	nBCleft = [int(x) for x in re.findall(r'\*([0-9])/', ped) ]
 	nBCright = [int(x) for x in re.findall(r'/([0-9])\*', ped) ]
 	if len(nBCleft):

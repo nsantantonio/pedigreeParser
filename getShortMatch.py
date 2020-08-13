@@ -11,12 +11,16 @@ def getShortMatch(p1, p2, ped):
 	p2pos = []
 	for match in re.finditer(p1, ped):
 		p1pos.append(match.span())
+
 	p1start = [x[0] for x in p1pos]
 	p1end = [x[1] for x in p1pos]
 	for match in re.finditer(p2, ped):
 		p2pos.append(match.span())
+
 	p2start = [x[0] for x in p2pos]
 	p2end = [x[1] for x in p2pos]
+	# remove any p1's starting after last p2
+	p1start = [ x for x in p1start if x < p2start[len(p2start)-1]]
 	i1 = p1start[0]
 	i2 = p2end[0]
 	diff = abs(p1start[0] - p2end[0])
